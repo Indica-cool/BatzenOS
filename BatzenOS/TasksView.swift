@@ -1,1 +1,1 @@
-// Demo content for BatzenOS module
+// Tages-To-Dos mit Erledigt-Status und Reminder um 20 Uhr

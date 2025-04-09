@@ -1,1 +1,1 @@
-// Demo content for BatzenOS module
+// Flip-KI-Modul: Einkaufspreis, Zielpreis, Plattform-Vorschläge (via GPT)
