@@ -1,12 +1,23 @@
 workflows:
-  ios-workflow:
-    name: Build BatzenOS
+  android-workflow:
+    name: Build Stoff Plan APK
     environment:
-      xcode: latest
+      java: 17
+      vars:
+        GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8"
     scripts:
-      - name: Build .ipa
+      - name: Set up Gradle wrapper
         script: |
-          xcodebuild -project BatzenOS.xcodeproj -scheme BatzenOS -sdk iphoneos -configuration Release archive -archivePath $CM_BUILD_DIR/Build/BatzenOS.xcarchive
-          xcodebuild -exportArchive -archivePath $CM_BUILD_DIR/Build/BatzenOS.xcarchive -exportOptionsPlist exportOptions.plist -exportPath $CM_BUILD_DIR/Build/BatzenOS
+          if [ ! -f gradlew ]; then
+            gradle wrapper --gradle-version 8.7 --distribution-type bin
+          fi
+          chmod +x gradlew
+      - name: Build debug APK
+        script: |
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace
+      - name: Build unsigned release APK
+        script: |
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace
     artifacts:
-      - Build/BatzenOS/*.ipa
+      - app/build/outputs/apk/debug/*.apk
+      - app/build/outputs/apk/release/*.apk
