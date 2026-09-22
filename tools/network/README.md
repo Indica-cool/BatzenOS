@@ -69,3 +69,84 @@ sudo rm -f /etc/polkit-1/rules.d/49-net-doctor-nm.rules
 systemctl --user disable --now polkit-agent.service
 sudo systemctl restart polkit NetworkManager
 ```
+
+---
+
+# net-autoconnect — WLAN + VPN automatisch beim Hochfahren
+
+Zweites Skript, für die Dauerlösung: Der Rechner verbindet sich nach dem Booten
+von selbst mit WLAN und VPN, und die typischen Aussetzer werden abgestellt.
+
+```bash
+./net-autoconnect.sh --list      # welche Profile gibt es?
+./net-autoconnect.sh             # erkennt WLAN + VPN automatisch, richtet ein
+./net-autoconnect.sh --wifi "Heimnetz" --vpn "MeinVPN"
+./net-autoconnect.sh --ethernet  # VPN auch am LAN-Kabel automatisch
+./net-autoconnect.sh --status    # was ist gerade eingerichtet?
+./net-autoconnect.sh --undo      # alles zurücknehmen
+```
+
+Ohne Argumente nimmt es das aktive WLAN und — falls es nur eines gibt — das
+vorhandene VPN-Profil. Bei mehreren fragt es nach, statt zu raten.
+
+## Was es einstellt und warum
+
+**Damit das WLAN beim Booten kommt:**
+
+- `connection.autoconnect=yes` und Priorität 100 — dein Netz wird zuerst probiert.
+- `connection.autoconnect-retries=0` — unbegrenzt weiterprobieren. Der Standard
+  ist 4: Wenn der Router beim Kaltstart langsamer hoch ist als der Laptop, gibt
+  NetworkManager auf und bleibt offline. Genau das Muster „nach dem Hochfahren
+  kein Netz, manuell klappt es sofort".
+- `connection.permissions=""` — systemweite statt benutzergebundener Verbindung.
+  Steht dort `user:name`, startet das WLAN frühestens nach dem Login, nie beim Boot.
+- Feste statt zufälliger MAC-Adresse — Zufalls-MACs zerschießen
+  DHCP-Reservierungen, MAC-Filter und Captive Portals.
+
+**Damit das VPN mitkommt:**
+
+- Klassische VPN-Plugins (OpenVPN, WireGuard via Plugin, IPsec, Fortinet …)
+  werden als `connection.secondaries` an die WLAN-Verbindung gehängt.
+  NetworkManager startet sie damit automatisch, sobald das Netz steht — in der
+  richtigen Reihenfolge, ohne Timer-Gebastel.
+- `vpn.persistent=yes` — nach einem Abbruch baut sich das VPN selbst wieder auf.
+- **Secret-Flags auf 0.** Das ist der eigentliche Knackpunkt: Liegt das
+  VPN-Passwort im Benutzer-Keyring (Flag 1, „agent-owned"), kann beim Hochfahren
+  niemand danach fragen — es gibt noch keine Sitzung. Das VPN startet dann nie
+  automatisch. Das Skript stellt die Flags um; danach musst du das Passwort
+  **einmalig** neu hinterlegen:
+  ```bash
+  sudo nmcli connection up "MeinVPN" --ask
+  ```
+  oder in der GUI „für alle Benutzer speichern" ankreuzen.
+- Reine WireGuard-Verbindungen (NM-Typ `wireguard`) brauchen das alles nicht —
+  sie sind eigene Geräte mit Schlüssel in der Verbindung. Dort genügt
+  `autoconnect=yes` mit Priorität 50, und das Skript erkennt den Unterschied.
+
+**Damit es nicht wiederkommt:**
+
+- `wifi.powersave=2` — Stromsparmodus der WLAN-Karte aus. Häufigste Ursache für
+  Abbrüche im Leerlauf und für „verbunden, aber nichts geht mehr".
+- `wifi.scan-rand-mac-address=no` global.
+- Konkurrierende Manager (`systemd-networkd`, `dhcpcd`, `connman`, `netctl`)
+  werden auf Nachfrage nicht nur abgeschaltet, sondern **maskiert** — so holt
+  sie kein Paket-Update versehentlich zurück.
+- `NetworkManager.service` wird enabled.
+
+Alles landet in `/etc/NetworkManager/conf.d/20-net-autoconnect.conf`, sauber
+kommentiert und mit `--undo` restlos entfernbar.
+
+## Reihenfolge
+
+```bash
+./net-doctor.sh --fix        # erst reparieren (Polkit, Treiber, Backend)
+./net-autoconnect.sh         # dann automatisieren
+sudo reboot                  # und einmal wirklich testen
+nmcli connection show --active
+```
+
+## Was das Skript nicht kann
+
+Einen Kernel-Treiber herbeizaubern, den es für deinen Chip nicht gibt, und ein
+VPN einrichten, das noch gar nicht als Profil existiert. Das VPN legst du einmal
+in der GUI an — danach übernimmt das Skript.
