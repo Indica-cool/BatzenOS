@@ -143,7 +143,12 @@ Mein Obsidian-Vault ist deine Wissensbasis und dein Langzeitgedächtnis.
 
 ## Lesen
 - Profil und Erinnerungen oben sind bereits geladen.
-- Bevor du ein Thema angehst, durchsuche den ganzen Vault danach (Grep über *.md), auch meine eigenen Notizen außerhalb von Claude/. Nutze, was du findest, und nenne die Notiz, aus der es stammt.
+- Bevor du ein Thema angehst, durchsuche den ganzen Vault danach, auch meine eigenen Notizen außerhalb von Claude/. Nutze, was du findest, und nenne die Notiz, aus der es stammt.
+- Ist Obsidian offen und der Befehl obsidian vorhanden, nutze die Obsidian-CLI (Skill obsidian-cli) für Suche, Backlinks, Tags und Daily Notes; sonst Grep über *.md.
+
+## Obsidian-Skills
+- Für Notizen den Skill obsidian-markdown nutzen (Properties, Wikilinks, Callouts, Embeds), für .base-Dateien obsidian-bases, für .canvas-Dateien json-canvas.
+- Webseiten für den Vault mit dem Skill defuddle als sauberes Markdown holen.
 
 ## Schreiben
 - Merke dir von dir aus, was künftigen Sessions hilft: Vorlieben, Entscheidungen, Details zu meinem System, gelöste Probleme mit Lösung, Projektstände. Sage ich „merk dir …“, speichere sofort.
@@ -184,6 +189,19 @@ with open(path, "w") as f:
     json.dump(s, f, indent=2, ensure_ascii=False)
     f.write("\n")
 PY
+
+# --- Obsidian-Skills von kepano (github.com/kepano/obsidian-skills) ---------
+if command -v claude >/dev/null; then
+  echo "Installiere Obsidian-Skills …"
+  claude plugin marketplace add kepano/obsidian-skills >/dev/null 2>&1 || true
+  if claude plugin install -s user obsidian@obsidian-skills >/dev/null 2>&1; then
+    echo "  Plugin obsidian@obsidian-skills installiert"
+  else
+    echo "  Installation fehlgeschlagen – in Claude: /plugin install obsidian@obsidian-skills"
+  fi
+else
+  echo "claude nicht gefunden – Obsidian-Skills übersprungen."
+fi
 
 echo
 echo "Fertig. Claude nutzt ab der nächsten lokalen Session $BASE als Gedächtnis."
