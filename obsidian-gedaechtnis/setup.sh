@@ -1,18 +1,16 @@
 #!/usr/bin/env bash
-# Macht einen Obsidian-Vault zur Wissensbasis und zum Gedächtnis von Claude Code.
+# Macht einen Obsidian-Vault (Zweites Gehirn) zur Wissensbasis und zum Gedächtnis von Claude Code.
 #
 #   bash setup.sh                 # Vault automatisch finden
 #   bash setup.sh /pfad/zum/vault # Vault direkt angeben
 #
-# Mehrfach ausführbar: vorhandene Notizen bleiben unangetastet, der
-# Claude-Abschnitt in ~/.claude/CLAUDE.md wird ersetzt statt verdoppelt.
+# Mehrfach ausführbar: der Abschnitt in ~/.claude/CLAUDE.md wird ersetzt statt
+# verdoppelt. Notizen im Vault legt das Skript nicht an – das macht das Onboarding.
 set -euo pipefail
 
 CLAUDE_DIR="$HOME/.claude"
-LINK="$CLAUDE_DIR/obsidian"
 MD="$CLAUDE_DIR/CLAUDE.md"
 SETTINGS="$CLAUDE_DIR/settings.json"
-TODAY="$(date +%F)"
 
 command -v python3 >/dev/null || { echo "python3 fehlt (sudo pacman -S python)"; exit 1; }
 
@@ -48,118 +46,29 @@ VAULT="${VAULT/#\~/$HOME}"
 VAULT="$(realpath "$VAULT")"
 [ -d "$VAULT/.obsidian" ] || { echo "$VAULT ist kein Obsidian-Vault (.obsidian fehlt)."; exit 1; }
 
-# --- Claude-Bereich im Vault ------------------------------------------------
-BASE="$VAULT/Claude"
-mkdir -p "$BASE/Erinnerungen" "$BASE/Sessions" "$BASE/Projekte" "$CLAUDE_DIR"
-echo "Notizen in $BASE:"
-
-new() {
-  if [ -e "$1" ]; then echo "  bleibt: ${1#"$BASE"/}"; return; fi
-  cat >"$1"
-  echo "  neu:    ${1#"$BASE"/}"
-}
-
-new "$BASE/Profil.md" <<EOF
----
-tags: [claude, profil]
-erstellt: $TODAY
----
-# Profil
-
-Was Claude in jeder Session über mich wissen soll. Wird bei jedem Start geladen – kurz halten.
-
-## Allgemein
-- Sprache: Deutsch
-
-## System
-- PC: CachyOS (Arch-basiert), Claude Code lokal und per Remote Control
-
-## Projekte
-- [[BatzenOS]] – iOS-App (SwiftUI) für Finanzen und Flipping, Build über Codemagic
-
-## Vorlieben
-EOF
-
-new "$BASE/Erinnerungen.md" <<EOF
----
-tags: [claude, gedaechtnis]
-erstellt: $TODAY
----
-# Erinnerungen
-
-Kurzfakten, die Claude sich merkt – eine Zeile pro Fakt, mit Datum.
-Wird bei jedem Start geladen. Größere Themen stehen als eigene Notiz im Ordner Erinnerungen und werden hier verlinkt.
-
-## Entscheidungen
-
-## System & Setup
-- $TODAY: Obsidian-Vault als Claude-Gedächtnis eingerichtet ($VAULT)
-
-## Gelöste Probleme
-
-## Offen
-EOF
-
-new "$BASE/Projekte/BatzenOS.md" <<EOF
----
-tags: [claude, projekt]
-erstellt: $TODAY
----
-# BatzenOS
-
-Die smarte Finanz- und Flipping-App mit integrierter GPT-Assistenz.
-
-- Repo: github.com/Indica-cool/BatzenOS
-- SwiftUI, Views: Dashboard, Budget, Tasks, Wishlist, FlipAssistant, ChatGPT, Speech
-- Build: Codemagic (codemagic.yaml) → .ipa
-
-## Stand
-
-## Offen
-EOF
-
-# --- Link ohne Leerzeichen für die @-Imports --------------------------------
-if [ -L "$LINK" ] || [ ! -e "$LINK" ]; then
-  ln -sfn "$VAULT" "$LINK"
-else
-  echo "$LINK existiert und ist kein Link – bitte umbenennen und erneut starten."; exit 1
-fi
-
 # --- Anweisungen in ~/.claude/CLAUDE.md -------------------------------------
+mkdir -p "$CLAUDE_DIR"
 [ -f "$MD" ] && cp "$MD" "$MD.bak-$(date +%s)"
 python3 - "$MD" "$VAULT" <<'PY'
 import os, sys
 path, vault = sys.argv[1:]
 start, end = "<!-- obsidian-gedaechtnis:start -->", "<!-- obsidian-gedaechtnis:end -->"
 block = f"""{start}
-# Gedächtnis: mein Obsidian-Vault
+# Mein Zweites Gehirn (Obsidian)
 
-Mein Obsidian-Vault ist deine Wissensbasis und dein Langzeitgedächtnis.
-- Vault: {vault}
-- Dein Bereich: {vault}/Claude/ (Profil.md, Erinnerungen.md, Erinnerungen/, Projekte/, Sessions/)
+Mein Obsidian-Vault ist deine Wissensbasis und dein Langzeitgedächtnis, in jeder Session und egal in welchem Ordner.
+Vault: {vault}
 
-@~/.claude/obsidian/Claude/Profil.md
-@~/.claude/obsidian/Claude/Erinnerungen.md
-
-## Lesen
-- Profil und Erinnerungen oben sind bereits geladen.
-- Bevor du ein Thema angehst, durchsuche den ganzen Vault danach, auch meine eigenen Notizen außerhalb von Claude/. Nutze, was du findest, und nenne die Notiz, aus der es stammt.
-- Ist Obsidian offen und der Befehl obsidian vorhanden, nutze die Obsidian-CLI (Skill obsidian-cli) für Suche, Backlinks, Tags und Daily Notes; sonst Grep über *.md.
+- Struktur und Regeln des Vaults stehen in {vault}/CLAUDE.md. Arbeitest du außerhalb des Vaults, lies diese Datei, bevor du dort suchst oder speicherst. Ist sie noch die Setup-Anleitung („Zweites Gehirn Setup Guide“), starte das Setup nur, wenn ich im Vault-Ordner arbeite oder es verlange.
+- Mein Profil steht in {vault}/00 Kontext/ (Über mich, ICP, Angebot, Schreibstil, Branding). Lies die passende Datei, wenn eine Aufgabe mich, meine Texte oder meine Projekte betrifft.
+- Bevor du ein Thema angehst, durchsuche den Vault danach und nenne die Notiz, aus der etwas stammt. Ist Obsidian offen und der Befehl obsidian vorhanden, nutze die Obsidian-CLI (Skill obsidian-cli), sonst Grep über *.md.
+- Sage ich „merk dir das“ oder „speicher das“, speichere es nach den Regeln der Vault-CLAUDE.md dort, wo es thematisch hingehört. Merke dir auch von dir aus, was künftigen Sessions hilft: Entscheidungen und Projektstände in die Datei unter 02 Projekte/, technische Erkenntnisse und gelöste Probleme samt Lösung nach 04 Ressourcen/.
+- Nach einer Session mit echtem Ergebnis: Eintrag in 05 Daily Notes/JJJJ-MM-TT.md anlegen oder ergänzen, mit Ergebnis, wichtigen Befehlen und offenen Punkten.
+- Niemals Passwörter, API-Keys, Tokens oder private Schlüssel im Vault speichern. Vor dem Löschen oder Überschreiben fragen.
 
 ## Obsidian-Skills
-- Für Notizen den Skill obsidian-markdown nutzen (Properties, Wikilinks, Callouts, Embeds), für .base-Dateien obsidian-bases, für .canvas-Dateien json-canvas.
-- Webseiten für den Vault mit dem Skill defuddle als sauberes Markdown holen.
-
-## Schreiben
-- Merke dir von dir aus, was künftigen Sessions hilft: Vorlieben, Entscheidungen, Details zu meinem System, gelöste Probleme mit Lösung, Projektstände. Sage ich „merk dir …“, speichere sofort.
-- Kurzfakt: eine Zeile mit Datum unter der passenden Überschrift in Claude/Erinnerungen.md.
-- Größeres Thema: eigene Notiz Claude/Erinnerungen/<Thema>.md, in Erinnerungen.md als [[<Thema>]] verlinken.
-- Projekte: Claude/Projekte/<Projekt>.md mit Stand, Entscheidungen, offenen Punkten.
-- Nach einer Session mit echtem Ergebnis: Claude/Sessions/JJJJ-MM-TT <Titel>.md mit Ziel, Ergebnis, wichtigen Befehlen und Lösungen, offenen Punkten.
-- Veraltetes korrigieren statt doppelt anlegen. Profil.md und Erinnerungen.md kurz halten (je unter 150 Zeilen), Details in Unternotizen.
-- Format: Markdown mit YAML-Frontmatter (tags, erstellt, aktualisiert) und Obsidian-Wikilinks [[...]].
-- Meine eigenen Notizen außerhalb von Claude/ nur ändern, wenn ich es sage.
-- Niemals Passwörter, API-Keys, Tokens oder private Schlüssel speichern.
+- Global installiert als Plugin obsidian@obsidian-skills (kepano). Nicht zusätzlich nach .claude/skills/ kopieren.
+- Notizen: obsidian-markdown. .base-Dateien: obsidian-bases. .canvas-Dateien: json-canvas. Webseiten als Markdown: defuddle.
 {end}"""
 text = open(path).read() if os.path.exists(path) else ""
 if start in text and end in text:
@@ -204,5 +113,11 @@ else
 fi
 
 echo
-echo "Fertig. Claude nutzt ab der nächsten lokalen Session $BASE als Gedächtnis."
+if [ -f "$VAULT/CLAUDE.md" ]; then
+  echo "Fertig. Vault-Regeln: $VAULT/CLAUDE.md"
+else
+  echo "Fertig. Jetzt die Setup-Anleitung (CLAUDE.md) in den Vault legen:"
+  echo "  $VAULT/CLAUDE.md"
+  echo "und im Vault 'claude' starten – dann beginnt das Onboarding."
+fi
 echo "Laufende Sessions (auch 'claude remote-control') einmal neu starten."
